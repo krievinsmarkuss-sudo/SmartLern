@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="lv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartLearn Final</title>
+<style>
+body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f0f4f7; }
+header { background:#4a90e2; color:#fff; padding:10px; display:flex; justify-content:space-between; align-items:center; }
+header h1 { margin:0; font-size:20px; }
+nav button { margin-left:10px; padding:5px 10px; font-size:14px; }
+.container { max-width:900px; margin:auto; padding:20px; background:#fff; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1);}
+textarea,input,select,button { width:100%; padding:10px; margin:5px 0; font-size:16px; }
+#solution, #notesDiv { margin-top:20px; background:#e8f0ff; padding:10px; border-radius:8px; min-height:50px;}
+.note { background:#fff; margin:5px 0; padding:5px; border-radius:5px; box-shadow:0 2px 4px rgba(0,0,0,0.1);}
+#premiumBanner { background:#ffeb3b; padding:10px; text-align:center; border-radius:5px; margin-bottom:10px;}
+</style>
+</head>
+<body>
+
+<header>
+    <h1>SmartLearn</h1>
+    <nav>
+        <button onclick="showNotes()">Notes</button>
+        <button onclick="logout()">Log Out</button>
+    </nav>
+</header>
+
+<div class="container" id="authDiv">
+    <h2>Sign Up / Sign In</h2>
+    <input type="email" id="email" placeholder="E-pasts">
+    <input type="password" id="password" placeholder="Parole">
+    <button onclick="signup()">Sign Up</button>
+    <button onclick="signin()">Sign In</button>
+    <div id="authMsg"></div>
+</div>
+
+<div class="container" id="appDiv" style="display:none;">
+    <div id="premiumBanner"></div>
+
+    <label for="subject">Izvēlies priekšmetu:</label>
+    <select id="subject">
+        <option value="math">Matemātika</option>
+        <option value="physics">Fizika</option>
+        <option value="chemistry">Ķīmija</option>
+        <option value="music">Mūzika</option>
+    </select>
+
+    <label for="userQuestion">Ievadi savu jautājumu:</label>
+    <textarea id="userQuestion" rows="3" placeholder="Raksti jautājumu šeit..."></textarea>
+
+    <label><input type="checkbox" id="premiumMode" checked disabled> Premium režīms</label>
+
+    <button onclick="answerQuestion()">Atbildēt</button>
+    <div id="solution"></div>
+
+    <div id="notesDiv"></div>
+    <input type="text" id="noteInput" placeholder="Raksti jaunu piezīmi">
+    <button onclick="addNote()">Pievienot piezīmi</button>
+</div>
+
+<script>
+// === Lietotāju datubāze (localStorage simulācija) ===
+let currentUser = null;
+function signup(){
+    const email=document.getElementById('email').value;
+    const password=document.getElementById('password').value;
+    if(!email||!password){ document.getElementById('authMsg').innerText="Ievadi e-pastu un paroli!"; return;}
+    let users=JSON.parse(localStorage.getItem('users')||"{}");
+    if(users[email]){ document.getElementById('authMsg').innerText="Lietotājs jau eksistē!"; return;}
+    users[email]={password:password,premium:false,notes:[],dailyQuestions:{}};
+    localStorage.setItem('users',JSON.stringify(users));
+    document.getElementById('authMsg').innerText="Reģistrācija veiksmīga! Tagad pieslēdzies.";
+}
+function signin(){
+    const email=document.getElementById('email').value;
+    const password=document.getElementById('password').value;
+    let users=JSON.parse(localStorage.getItem('users')||"{}");
+    if(!users[email]||users[email].password!==password){ document.getElementById('authMsg').innerText="Nepareizs e-pasts vai parole"; return;}
+    currentUser=email;
+    document.getElementById('authDiv').style.display="none";
+    document.getElementById('appDiv').style.display="block";
+    updatePremiumBanner();
+    loadNotes();
+}
+function logout(){
+    currentUser=null;
+    document.getElementById('appDiv').style.display="none";
+    document.getElementById('authDiv').style.display="block";
+    document.getElementById('authMsg').innerText="";
+}
+
+// === Premium ===
+function updatePremiumBanner(){
+    const users=JSON.parse(localStorage.getItem('users')||"{}");
+    const user=users[currentUser];
+    let banner=document.getElementById('premiumBanner');
+    if(user.premium){
+        banner.innerHTML=`<b>Tu esi Premium lietotājs!</b>`;
+        document.getElementById('premiumMode').checked=true;
+    }else{
+        banner.innerHTML=`<b>Tu neesi Premium!</b> Iegādājies: <button onclick="buyPremium('week')">1.99€/nedēļā</button> <button onclick="buyPremium('month')">4.99€/mēnesī</button>
+        <br>Ievadi kodu Premium: <input type="text" id="promoCode"><button onclick="applyCode()">Ievadīt</button>`;
+        document.getElementById('premiumMode').checked=false;
+    }
+}
+function buyPremium(type){
+    alert(`Simulēta pirkšana: ${type==='week'?'1.99€/nedēļa':'4.99€/mēnesis'}. Tagad tev būs Premium!`);
+    let users=JSON.parse(localStorage.getItem('users')||"{}");
+    users[currentUser].premium=true;
+    localStorage.setItem('users',JSON.stringify(users));
+    updatePremiumBanner();
+}
+function applyCode(){
+    const code=document.getElementById('promoCode').value;
+    if(code==="CVgrzfc9"){
+        let users=JSON.parse(localStorage.getItem('users')||"{}");
+        users[currentUser].premium=true;
+        localStorage.setItem('users',JSON.stringify(users));
+        alert("Kods pieņemts! Tu esi Premium!");
+        updatePremiumBanner();
+    }else{
+        alert("Nepareizs kods.");
+    }
+}
+
+// === Notes ===
+function addNote(){
+    let note=document.getElementById('noteInput').value;
+    if(!note){ return;}
+    let users=JSON.parse(localStorage.getItem('users')||"{}");
+    if(!users[currentUser].premium){ alert("Piezīmes pieejamas tikai Premium lietotājiem!"); return;}
+    users[currentUser].notes.push(note);
+    localStorage.setItem('users',JSON.stringify(users));
+    document.getElementById('noteInput').value="";
+    loadNotes();
+}
+function loadNotes(){
+    let users=JSON.parse(localStorage.getItem('users')||"{}");
+    let notes=users[currentUser].notes||[];
+    const div=document.getElementById('notesDiv');
+    div.innerHTML="";
+    notes.forEach(n=>{
+        div.innerHTML+=`<div class="note">${n}</div>`;
+    });
+}
+function showNotes(){ alert("Notes ir zemāk, pievieno jaunās piezīmes tur."); }
+
+// === Dienas ierobežojums Basic lietotājiem ===
+function canAskQuestion() {
+    const users = JSON.parse(localStorage.getItem('users') || "{}");
+    const user = users[currentUser];
+
+    if(user.premium) return true; // Premium nav ierobežojuma
+
+    const today = new Date().toISOString().slice(0,10); // YYYY-MM-DD
+    if(!user.dailyQuestions) user.dailyQuestions = {};
+    
+    if(user.dailyQuestions[today] === undefined) user.dailyQuestions[today] = 0;
+
+    if(user.dailyQuestions[today] >= 10){
+        alert("Basic versijas lietotāji var uzdot tikai 10 jautājumus dienā. Premium nav ierobežojuma!");
+        return false;
+    }
+
+    // Palielinām skaitītāju
+    user.dailyQuestions[today] += 1;
+    users[currentUser] = user;
+    localStorage.setItem('users', JSON.stringify(users));
+    return true;
+}
+
+// === SmartLearn Q&A ===
+const answers = {
+    math: {"2+3": {answer:"5", detail:"2 + 3 = 5, vienkārša saskaitīšana."},"5*7": {answer:"35", detail:"5*7=35."},"10/2": {answer:"5", detail:"10/2=5"},"x+2": {answer:"x+2", detail:"Ja x ir mainīgais, pievienojam 2."},"kvadrātsakne": {answer:"√x", detail:"Kvadrātsakne no x ir skaitlis, kas reizināts ar sevi dod x. Piemērs: √49=7"},"pi": {answer:"≈3.14159", detail:"Pi ≈ 3.14159"}},
+    physics: {"gravitācija": {answer:"9.8 m/s²", detail:"Gravitācijas paātrinājums uz Zemes virsmas ≈9.8 m/s²."},"f=ma": {answer:"F = m*a", detail:"Spēks = masa * paātrinājums"},"spēks": {answer:"F = m*a", detail:"Spēks = m*a"},"voltmetrs": {answer:"Voltmetrs mēra spriegumu", detail:"Voltmetrs mēra spriegumu voltos"},"strāva": {answer:"Ampēros (A)", detail:"Strāva mērāma ampēros (A)"},"pretestība": {answer:"Omā (Ω)", detail:"Pretestība mērāma Omā"},"enerģija": {answer:"Jouli (J)", detail:"Enerģija mērāma Joulos (J)"}},
+    chemistry: {"ūdens": {answer:"H₂O", detail:"Ūdens molekula H₂O"},"reakcijas produkti": {answer:"Vielas, kas veidojas reakcijas rezultātā", detail:"Piemērs: H₂+O₂→H₂O"},"skābe": {answer:"Vielas ar pH<7", detail:"Skābes donē H⁺ jonus"},"bāze": {answer:"Vielas ar pH>7", detail:"Bāzes donē OH⁻ jonus"},"nātrijs": {answer:"Na", detail:"Nātrijs ķīmiskajā tabulā: Na"},"ogļskābā gāze": {answer:"CO₂", detail:"Ogļskābā gāze CO₂"}},
+    music: {"ritms": {answer:"Pamata taktī daļa", detail:"Ritms: cik sitieni katrā taktī, piem. 4/4."},"melodija": {answer:"Secība skaņām", detail:"Melodija ir skaņu secība dziesmai."},"instruments": {answer:"Vijole", detail:"Šajā audio fragmentā skan vijole"},"harmonija": {answer:"Akordu kombinācijas", detail:"Harmonija papildina melodiju"}}
+};
+
+function isMathExpression(q){ return /^[0-9xX+\-*/().\s]+$/.test(q); }
+
+function answerQuestion(){
+    if(!currentUser){ alert("Lūdzu pieslēdzies!"); return; }
+    
+    // Pārbaudām dienas ierobežojumu Basic lietotājiem
+    if(!canAskQuestion()) return;
+
+    const subj=document.getElementById('subject').value;
+    const q=document.getElementById('userQuestion').value.trim().toLowerCase();
+    const premium=document.getElementById('premiumMode').checked;
+    const solDiv=document.getElementById('solution');
+    solDiv.innerHTML="";
+    if(!q){ solDiv.innerHTML="<b>Ievadi jautājumu!</b>"; return;}
+
+    if(subj==="math" && isMathExpression(q)){
+        try{
+            let result = eval(q.replace(/x/gi,"1"));
+            solDiv.innerHTML=`<b>Atbilde:</b> ${result}`;
+            if(premium){ solDiv.innerHTML+=`<br><b>Padziļināts paskaidrojums:</b> "${q}" tika aprēķināts ar standarta matemātiskām operācijām.`;}
+            return;
+        }catch(e){ solDiv.innerHTML="<b>Nevar aprēķināt!</b>"; return;}
+    }
+
+    if(answers[subj]){
+        let found=false;
+        for(const key in answers[subj]){
+            if(q.includes(key)){
+                found=true;
+                const ans=answers[subj][key];
+                solDiv.innerHTML=`<b>Atbilde:</b> ${ans.answer}`;
+                if(premium) solDiv.innerHTML+=`<br><b>Padziļināts paskaidrojums:</b> ${ans.detail}`;
+                break;
+            }
+        }
+        if(!found){ solDiv.innerHTML="<b>Atbilde netika atrasta. Uzraksti citādi vai precīzāk!</b>";}
+    } else { solDiv.innerHTML="<b>Šim priekšmetam nav datu.</b>";}
+}
+</script>
+
+</body>
+</html>
